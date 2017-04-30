@@ -6,7 +6,7 @@ Membrane works, but it will help ensure external consumers of the membrane
 module cannot rewrite how each individual Membrane works.
 */
 var Membrane;
-if (false) {
+if (true) {
   var DogfoodMembrane = new MembraneInternal({
     /* configuration options here */
   });
@@ -43,6 +43,43 @@ if (false) {
   let internalAPI = DogfoodMembrane.getHandlerByField("internal", true);
 
   // lockdown of the public API here
+  const mbListener = {
+    whitelist: function(meta, names, field="internal") {
+      if (typeof meta.target === "function")
+      {
+        names = names.concat(["prototype", "length", "name"]);
+      }
+
+      names = new Set(names);
+      DogfoodMembrane.modifyRules.storeUnknownAsLocal(field, meta.target);
+      DogfoodMembrane.modifyRules.requireLocalDelete(field, meta.target);
+      DogfoodMembrane.modifyRules.filterOwnKeys(
+        field, meta.target, names.has.bind(names)
+      );
+      meta.stopIteration();
+    },
+
+    handleProxy: function(meta) {
+      if (meta.target instanceof MembraneInternal)
+      {
+        this.whitelist(meta, ["modifyRules", "logger"]);
+      }
+      else if (meta.target === MembraneInternal)
+      {
+        this.whitelist(meta, []);
+      }
+      else if ((meta.target instanceof ProxyMapping) ||
+               (meta.target === ProxyMapping))
+      {
+        meta.throwException(
+          new Error("ProxyMapping must never leak from a Membrane!")
+        );
+      }
+    }
+  };
+
+  Object.freeze(mbListener);
+  publicAPI.addProxyListener(mbListener.handleProxy.bind(mbListener));
 
   // Define our Membrane constructor properly.
   Membrane = DogfoodMembrane.convertArgumentToProxy(
@@ -69,4 +106,3 @@ if (false) {
 else {
   Membrane = MembraneInternal;
 }
-MembraneInternal = null;
