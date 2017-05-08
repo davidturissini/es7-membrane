@@ -1,75 +1,18 @@
-const ObjectGraphManager = {
+const ObjectGraphManager = new TBodyRowManager({
   // see below, private
-  rowTemplate: null, 
   customBody: null,  
   standardBody: null,
+  rowTemplate: null,
   form: null,
+  table: null,
+  mockOptionsText: null,
+  runMembraneTest: null,
 
-  addRow: function()
+  init: function()
   {
-    let row = this.rowTemplate.content.firstElementChild;
-    row = row.cloneNode(true);
-    this.customBody.appendChild(row);
-    this.resetMoveButtons();
-    this.inputChangeListener();
-  },
-
-  moveUp: function(event)
-  {
-    let row = this.rowForEvent(event);
-    row.parentNode.insertBefore(row, row.previousSibling);
-    this.resetMoveButtons();
-    this.inputChangeListener();
-  },
-
-  moveDown: function(event)
-  {
-    let row = this.rowForEvent(event);
-    row.parentNode.insertBefore(row.nextSibling, row);
-    this.resetMoveButtons();
-    this.inputChangeListener();
-  },
-
-  removeRow: function(event)
-  {
-    let row = this.rowForEvent(event);
-    row.parentNode.removeChild(row);
-    this.resetMoveButtons();
-    this.inputChangeListener();
-  },
-
-  rowForEvent: function(event)
-  {
-    let elem = event.target;
-    while (elem.localName != "tr")
-      elem = elem.parentNode;
-    return elem;
-  },
-
-  resetMoveButtons: function()
-  {
-    const UP = 0, DOWN = 1, TOP_ROW = 0, LAST_ROW = -1;
-    this.setButtonDisabled(TOP_ROW,      DOWN, false);
-    this.setButtonDisabled(TOP_ROW + 1,  UP,   false);
-
-    this.setButtonDisabled(LAST_ROW,     UP,   false);
-    this.setButtonDisabled(LAST_ROW - 1, DOWN, false);
-
-    this.setButtonDisabled(TOP_ROW,  UP,   true);
-    this.setButtonDisabled(LAST_ROW, DOWN, true);
-  },
-
-  /**
-   * @private
-   */
-  setButtonDisabled: function(rowIndex, btnIndex, disabled)
-  {
-    const rows = this.customBody.children;
-    let length = rows.length;
-    if (rowIndex < 0)
-      rowIndex += length;
-    if ((0 <= rowIndex) && (rowIndex < length))
-      rows[rowIndex].getElementsByTagName("button")[btnIndex].disabled = disabled;
+    this.finishTable();
+    this.initEditors();
+    this.attachEvents();
   },
 
   graphNames: function()
@@ -164,27 +107,96 @@ const ObjectGraphManager = {
   /**
    * @private
    */
-  inputChangeListener: function() {
+  inputChangeListener: function()
+  {
     const graphData = this.graphNames();
     var rv = this.form.reportValidity();
-    TestDriver.setLockStatus(this.lockSymbol, !rv);
+    TestDriver.setLockStatus("MembraneMocks", this.lockSymbol, !rv);
     if (rv)
     {
       let argList = graphData.map(function(o) {
         return o.callback;
       });
       argList.unshift("buildMembrane");
-      CodeMirrorManager.defineTestsArgList(argList);
+      this.defineTestsArgList(argList);
     }
-  }
-};
+  },
+
+  defineTestsArgList: function(argList)
+  {
+    const line = `function defineMocksTests(${argList.join(", ")})`;
+    // the editor's line 0 is rendered as line #1.
+    const startPos = { line: 0, ch: 0}, endPos = { line: 0, ch: Infinity };
+    this.runMembraneTestEditor.replaceRange(line, startPos, endPos);
+  },
+
+  initEditors: function()
+  {
+    this.mockOptionsEditor     = CodeMirrorManager.buildNewEditor(this.mockOptions);
+    this.runMembraneTestEditor = CodeMirrorManager.buildNewEditor(this.runMembraneTest);
+  },
+
+  getBlobs: function(blobs)
+  {
+    "use strict";
+    {
+      // Assemble the blob defining the graph names.
+      let graphData = this.graphNames();
+      void(graphData);
+      let sources = [
+`
+const graphData = [
+`,
+// individual graph info
+`
+];
+`
+      ];
+      graphData.forEach(function(item) {
+        let name = item.graphName.toString();
+        if (typeof item.graphName == "symbol")
+        {
+          name = [
+            'Symbol(`',
+            name.substring(7, name.length - 1),
+            '`)'
+          ].join("");
+        }
+        else
+          name = JSON.stringify(item.graphName);
+        let lineSource = `
+  {
+    "graphName": ${name},
+    "callback": "${item.callback}"
+  },
+`;
+        sources.splice(sources.length - 1, 0, lineSource);
+      });
+      TestDriver.convertSourcesToTestBlob(sources, blobs);
+    }
+
+    [
+      "mockOptionsEditor",
+      "runMembraneTestEditor",
+    ].forEach(function(propName) {
+      if (!(propName in ObjectGraphManager)) {
+        throw new Error("Missing editor: " + propName);
+      }
+      let source = this[propName].getValue();
+      TestDriver.convertSourcesToTestBlob([source], blobs);
+    }, this);
+  },
+});
 
 {
   let elems = [
     "customBody",
     "standardBody",
     "rowTemplate",
-    "form"
+    "form",
+    "table",
+    "mockOptions",
+    "runMembraneTest",
   ];
   elems.forEach(function(idSuffix)
   {

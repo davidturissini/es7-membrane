@@ -24,12 +24,17 @@
         href="libraries/codemirror-5.25.2/addon/fold/foldgutter.css">
   <script type="application/javascript"
           src="libraries/codemirror-5.25.2/mode/javascript/javascript.js"></script>
-
   <script type="application/javascript"
           src="lab/utilities/defineElementGetter.js"
          ></script>
   <script type="application/javascript"
+          src="lab/utilities/TBodyRowManager.js"
+         ></script>
+  <script type="application/javascript"
           src="lab/utilities/ObjectGraphManager.js"
+         ></script>
+  <script type="application/javascript"
+          src="lab/utilities/FreeformManager.js"
          ></script>
   <script type="application/javascript"
           src="lab/utilities/CodeMirrorManager.js"
@@ -45,8 +50,30 @@
 
 <body>
   <section>
+    <label for="TestDriver-scriptEnvironment">Script Environment</label>
+    <select id="TestDriver-scriptEnvironment">
+      <option value="MembraneMocks">JS-based DOM mocks</option>
+      <option value="Freeform">Ordinary JavaScript</option>
+    </select>
+    <label for="TestDriver-pageEnvironment">Test Environment</label>
+    <select id="TestDriver-pageEnvironment">
+      <option value="jasmine.html">Jasmine 2.5.2</option>
+    </select>
+  </section>
+  <hr>
+  <section>
+    <button onclick="TestDriver.run();"
+            disabled="disabled"
+            id="TestDriver-runButton">
+      Run the test
+    </button>
+    <br>
+    <iframe src="lab/error.html" id="TestDriver-iframe"></iframe>
+  </section>
+  <hr>
+  <section id="panel-MembraneMocks">
     <form id="objectGraph-form" action="javascript:void();">
-      <table id="objectGraphTable">
+      <table id="objectGraph-table" addRowText="Add object graph">
         <caption>
           Object graphs
         </caption>
@@ -79,54 +106,35 @@
         <tbody id="objectGraph-customBody">
         </tbody>
 
+        <tfoot><tr><td colspan="4" class="footerCell"></td></tr></tfoot>
+
         <template id="objectGraph-rowTemplate">
           <tr>
             <td><input type="text" size="6"></td>
             <td><input type="checkbox"></td>
             <td><input type="text" size="10" pattern="^[a-zA-Z$_][a-zA-Z0-9$_]*$"></td>
-            <td><span>
-              <button disabled="disabled"
-                      onclick="ObjectGraphManager.moveUp(event);"
-                     >&#x21E7;</button>
-              <button disabled="disabled"
-                      onclick="ObjectGraphManager.moveDown(event);"
-                     >&#x21E9;</button>
-              <button onclick="ObjectGraphManager.removeRow(event);"
-                     >X</button>
-            </span></td>
+            <td class="commandsCell"></td>
           </tr>
         </template>
 
-        <tfoot>
-          <tr>
-            <td colspan="4"><span>
-              <button onclick="ObjectGraphManager.addRow();"
-                     >
-                Add object graph
-              </button>
-              <!-- We will work on supporting this later. -->
-            </span></td>
-          </tr>
-        </tfoot>
+        <template id="TBodyRowManager-commandsCell">
+          <span>
+            <button disabled="disabled" class="moveUpButton">&#x21E7;</button>
+            <button disabled="disabled" class="moveDnButton">&#x21E9;</button>
+            <button class="deleteButton">X</button>
+          </span>
+        </template>
+
+        <template id="TBodyRowManager-footerCell">
+          <span>
+            <button class="addRowButton"></button>
+          </span>
+        </template>
+
       </table>
     </form>
-
     <hr>
-    <label for="TestDriver-DOMEnvironment">DOM Environment</label>
-    <select id="TestDriver-DOMEnvironment">
-      <option>JS-based DOM mocks</option>
-      <!--
-      <option>Actual XML DOM</option>
-      -->
-    </select>
-    <hr>
-    <label for="TestDriver-pageEnvironment">Test Environment</label>
-    <select id="TestDriver-pageEnvironment">
-      <option value="jasmine.html">Jasmine 2.5.2</option>
-    </select>
-  </section>
-  <section>
-    <textarea readonly="true" id="CM-mockOptions" rows="10" cols="80">
+    <textarea readonly="true" id="objectGraph-mockOptions" rows="10" cols="80">
 /*
 var Mocks = {
   wet: {
@@ -167,8 +175,8 @@ const mockOptions = {
 };
     </textarea>
     <hr>
-    <textarea readonly="true" id="CM-runMembraneTest" rows="20" cols="80">
-function defineTests(buildMembrane, withWetDoc, withDryDoc)
+    <textarea readonly="true" id="objectGraph-runMembraneTest" rows="20" cols="80">
+function defineMocksTests(buildMembrane, withWetDoc, withDryDoc)
 {
   describe("A document has node type 9", function() {
     beforeEach(buildMembrane);
@@ -188,12 +196,29 @@ function defineTests(buildMembrane, withWetDoc, withDryDoc)
 };
     </textarea>
     <hr>
-    <button onclick="TestDriver.run(['CM-mockOptions', 'CM-runMembraneTest']);"
-            id="TestDriver-runButton">
-      Run the test
-    </button>
-    <br>
-    <iframe src="lab/error.html" id="TestDriver-iframe"></iframe>
+  </section>
+  <section id="panel-Freeform" collapsed="true">
+    <table id="Freeform-table" addRowText="Add script">
+      <caption>Freeform JavaScripts</caption>
+      <thead>
+        <tr>
+          <td>Source code</td>
+          <td>Commands</td>
+        </tr>
+      </thead>
+      
+      <tbody id="Freeform-customBody">
+      </tbody>
+
+      <tfoot><tr><td colspan="2" class="footerCell"></td></tr></tfoot>
+
+      <template id="Freeform-rowTemplate">
+        <tr>
+          <td><textarea></textarea></td>
+          <td class="commandsCell"></td>
+        </tr>
+      </template>
+    </table>
   </section>
 </body>
 </html>

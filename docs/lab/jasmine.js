@@ -15,9 +15,9 @@ function defineBasicTests()
   });
 }
 
-function defineTestsIfAvailable()
+function defineMocksTestsIfAvailable()
 {
-  if ((typeof defineTests != "function") ||
+  if ((typeof defineMocksTests != "function") ||
       (typeof mockOptions != "object") ||
       !Array.isArray(graphData))
     throw new Error("Missing a mandatory object");
@@ -58,35 +58,84 @@ function defineTestsIfAvailable()
     });
   });
 
-  defineTests.apply(this, args);
+  defineMocksTests.apply(this, args);
 }
 
-function addBlobs()
-{
-  "use strict";
-  let masterURL = new URL(window.location.href);
-  if (masterURL.searchParams.has("firstRun"))
+function voidFunc() { /* do nothing */ }
+
+const BlobLoader = {
+  loadFired: false,
+  testsStarted: false,
+  init: function()
   {
-    window.addEventListener("DOMContentLoaded", defineBasicTests, true);
-    return;
-  }
+    "use strict";
+    window.addEventListener("load", this, true);
 
-  let blobs = masterURL.searchParams.getAll("scriptblob");
-  let blobURLs = [];
-  blobs.forEach(function(b) {
-    let scriptElem = document.createElement("script");
-    scriptElem.setAttribute("src", b);
-    document.head.appendChild(scriptElem);
-    blobURLs.push(b);
-  });
+    const params = new URL(window.location.href).searchParams;
+    const testMode = params.get("testMode");
+    if (testMode == "firstRun")
+    {
+      this.setTestStart(0, defineBasicTests);
+      return;
+    }
 
-  window.addEventListener("DOMContentLoaded", defineTestsIfAvailable, true);
+    let blobs = params.getAll("scriptblob");
 
-  window.addEventListener("unload", function() {
-    blobURLs.forEach(function(b) {
-      URL.revokeObjectURL(b);
+    if (testMode == "MembraneMocks")
+      this.setTestStart(blobs.length, defineMocksTestsIfAvailable);
+
+    else if (testMode == "Freeform")
+      this.setTestStart(blobs.length, voidFunc);
+
+    let blobURLs = [];
+    blobs.forEach(function(b) {
+      let scriptElem = document.createElement("script");
+      scriptElem.setAttribute("src", b);
+      document.head.appendChild(scriptElem);
+      blobURLs.push(b);
     });
-  });
-}
 
-addBlobs();
+    window.addEventListener("unload", function() {
+      blobURLs.forEach(function(b) {
+        URL.revokeObjectURL(b);
+      });
+    });
+  },
+
+  setTestStart: function(blobCount, defineTests)
+  {
+    this.blobCount = blobCount;
+    this.defineTests = defineTests;
+  },
+
+  decrement: function()
+  {
+    --this.blobCount;
+    this.mayStartTests();
+  },
+
+  mayStartTests: function()
+  {
+    if ((this.blobCount > 0) || !this.loadFired || this.testsStarted)
+      return;
+
+    this.testsStarted = true;
+    this.defineTests();
+    jasmine.getEnv().execute();
+  },
+
+  handleEvent: function(event) {
+    if (event.target != document)
+      return;
+    window.setTimeout(this.handleLoad.bind(this), 0);
+    window.removeEventListener("load", this, true);
+  },
+
+  handleLoad: function()
+  {
+    this.loadFired = true;
+    this.mayStartTests();
+  }
+};
+
+BlobLoader.init();

@@ -2,12 +2,13 @@ window.addEventListener(
   "DOMContentLoaded",
   function()
   {
-    CodeMirrorManager.setInitialState();
+    ObjectGraphManager.init();
+    FreeformManager.init();
+    TestDriver.init();
   },
   true
 );
 
 window.addEventListener("load", function() {
-  ObjectGraphManager.attachEvents();
   TestDriver.firstRun();
 }, true);
